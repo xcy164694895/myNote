@@ -391,3 +391,6 @@ private void testIter(){
 5、`HashTable`基本上所有的`public`都加上了`synchronized`关键字，来保证线程安全性，但这也是它的效率比较低。而`HashMap`是线程不安全的。
 
 6、`HashMap`允许key和value为空，但是只允许一个key为空，且必定保存在哈希桶的0索引位置。而`HashTable`不允许key和value为空。
+
+
+>注：以上的所有内容都是我的个人见解，如果有什么不对或不解，欢迎留言纠错和提问，谢谢！
