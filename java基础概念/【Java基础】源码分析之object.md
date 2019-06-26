@@ -6,7 +6,7 @@
 
 Java是一门面向对象的编程语言，在Java的世界里，万物皆对象。而Object是一切对象的祖先。所以理解Object的常用方法就非常必要了，下面是Object的成员方法图解：
 
-![](.【Java基础】源码分析之object_images/65cb2b71.png)
+![](.【Java基础】源码分析之object_images/8032730f.png)
 
 ### 问题 ###
 
