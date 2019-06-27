@@ -5,7 +5,7 @@
 ### 概述 ###
 HashMap实现了Serializable和cloneable接口，继承了AbstractMap类。我们先来看下HashMap的图解：
 
-![](.【Java集合】源码分析之HashMap_images/52109728.png)
+![](.【Java集合】相关图片/52109728.png)
 
 **HashMap常见知识点**
 
@@ -42,7 +42,7 @@ HashMap实现了Serializable和cloneable接口，继承了AbstractMap类。我�
 
 `HashMap` 作为使用hash值来决定元素存储位置的集合也是需要处理hash冲突的。在1.7之前JDK采用「拉链法」来存储数据，即数组和链表结合的方式：
 
-![](.【Java集合】源码分析之HashMap_images/a825e66a.png)
+![](.【Java集合】相关图片/a825e66a.png)
 
 「拉链法」用专业点的名词来说叫做链地址法。简单来说，就是数组加链表的结合。在每个数组元素上存储的都是一个链表。不同的 key 可能经过 hash 运算可能会得到相同的地址，但是一个数组单位上只能存放一个元素，采用链地址法以后，如果遇到相同的 hash 值的 key 的时候，我们可以将它放到作为数组元素的链表上。待我们去取元素的时候通过 hash 运算的结果找到这个链表，再在链表中找到与 key 相同的节点，就能找到 key 相应的值了。JDK1.7中新添加进来的元素总是放在数组相应的角标位置，而原来处于该角标的位置的节点作为 next 节点放到新节点的后边。
 
@@ -50,7 +50,7 @@ HashMap实现了Serializable和cloneable接口，继承了AbstractMap类。我�
 #### JDK1.8以后的数据结构 ####
 对于`JDK1.8`以后`HashMap`在底层解决哈希冲突的方法，就不仅仅是数组加单链表的组合了，因为如果发生hash冲突的值比较多的情况下，会导致链表的长度越来越长，此时通过key来寻找单链表上对应的value值时，时间复杂度就变成了O（n）,因此在JDK1.8后，在链表新增节点导致长度超过TREEIFY_THRESHOLD = 8的时候，就会在添加元素的同时，将原来的单链表结构改为红黑树。红黑树是一种易于增删改查的二叉树，它对于数据查询的时间复杂度是O(logn)级别，所以利用红黑树能够更高效的对HashMap的数据进行操作。
 
-![](.【Java集合】源码分析之HashMap_images/26da5582.png)
+![](.【Java集合】相关图片/26da5582.png)
 
 #### HashMap中重要的基础参数 ####
 
@@ -203,7 +203,7 @@ static final int hash(Object key) {
 从源码中可以看到，**该方法将key的hashcode右移了16位，即丢弃掉低位16位，高位16位全部为0，然后再与key的hashcode做异或运算，即高位16位与低位16位做异或运算，这么做可以在table的length比较小的时候也能够高低位都能参与到hash的计算当中，同时也不会有太大的开销**。通过上述方法获取到key最终的hash值。这时候还没有获取到，该key在hash表中的索引位置，在put方法中，**会将获取到的hash值，与table的length-1做与运算，获取到最终的索引位置**。**为什么是table的length-1呢？**
 **因为HashMap的底层数组长度总是2^n，转为二进制１后面跟着多个0的情况，此时一个数与2^n取模，等同于一个数与2^n-1做与运算。**
 
-![](.【Java集合】源码分析之HashMap_images/4dcb8e3c.png)
+![](.【Java集合】相关图片/4dcb8e3c.png)
 
 >图片来自：https://tech.meituan.com/java-hashmap.html 侵删。
 
@@ -288,7 +288,7 @@ final V putVal(int hash, K key, V value, boolean onlyIfAbsent,
 
 >图片来来自：https://tech.meituan.com/java-hashmap.html
 
-![](.【Java集合】源码分析之HashMap_images/be2d6140.png)
+![](.【Java集合】相关图片/be2d6140.png)
 
 #### 添加元素过程表述如下 #####
 1、如果`Node[] table`为null，则说明是第一次添加元素，那么初始化哈希表，或者说首次扩容哈希表。
@@ -415,11 +415,11 @@ final Node<K,V>[] resize() {
 网上大佬说因为扩容是容量翻倍，所以原链表上的每个节点，可能存放新哈希表中在原来的下标位置， 或者扩容后的原位置偏移量为 oldCap 的位置上，下边举个例子 图片和叙述来自 https://tech.meituan.com/java-hashmap.html：
 图（a）表示扩容前的key1和key2两种key确定索引位置的示例，图（b）表示扩容后key1和key2两种key确定索引位置的示例，其中hash1是key1对应的哈希与高位运算结果。
 
-![](.【Java集合】源码分析之HashMap_images/7e3810e1.png)
+![](.【Java集合】相关图片/7e3810e1.png)
 
 元素在重新计算hash之后，因为n变为2倍，那么n-1的mask范围在高位多1bit(红色)，因此新的index就会发生这样的变化：
 
-![](.【Java集合】源码分析之HashMap_images/47bccc57.png)
+![](.【Java集合】相关图片/47bccc57.png)
 
 所以在 JDK1.8 中扩容后，只需要看看原来的hash值新增的那个bit是1还是0就好了，是0的话索引没变，是1的话索引变成“原索引+oldCap。
 
