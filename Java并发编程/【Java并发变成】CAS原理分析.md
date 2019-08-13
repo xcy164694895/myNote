@@ -10,7 +10,7 @@ CAS全称Compare And Swap，即比较和交换，该技术是实现用于多线�
 
 假如“线程2”与“线程1”同时拿到共想资源的值，线程2执行操作较慢，在线程2本地内存副本中经过操作，将A2值修改为B2值，然后去更新主存中的值，这时候发现V与预期值A2不想等，那么说明V值在“线程2”执行期间被修改。那么“线程2”可以选择放弃执行，或者会重新读取新的V值到本地线程副本中，重新执行操作，再重新判断是否更新V值。以下图为例：
 
-![](.【Java基础】相关图片/CAS原理.png)
+![](相关图片/CAS原理.png)
 
 基于这样的原理，CAS操作即使没有加锁，一样能够知道其他线程对共享资源是否产生影响，并做出相应的措施。同时从这点也可以看出，由于无锁操作中没有锁的存在，所以不可能出现死锁的情况。
 
@@ -122,7 +122,7 @@ public class AtomicInteger extends Number implements java.io.Serializable {
 
 可以通过下列图示来理解ABA问题
 
-![](.【Java基础】相关图片/CAS的ABA问题.png)
+![](相关图片/CAS的ABA问题.png)
 
 Java也提供了两个类来解决ABA问题，分别是：AtomicStampedReference、AtomicMarkableReference。他们解决的方法类似，都是给值加上标记，只是一个是时间戳，一个是boolean值。
 #### AtomicStampedReference ####
