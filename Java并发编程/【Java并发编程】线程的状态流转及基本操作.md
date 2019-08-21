@@ -174,6 +174,122 @@ public enum State {
 ```
 从源代码注释中可以整理出线程状态转换的过程。当一个线程创建之后，就处于**NEW(新建状态)**,调用Thread.start()后，线程并不会立马执行，而是进入**REDAY(就绪状态)**，等待系统调度该线程之后，进入**RUNNING(运行中状态)**。
 CPU执行每个线程是有一个时间限制的，这个时间段被称为时间片，当一个时间片结束后，线程仍在执行中，那么系统会将线程重新置为REDAY（就绪状态）,或者在线程运行时，调用Thread.yeild()方法，该线程一样会被置为READY状态，等待系统再次调用。
-当系统调用Object.wait()、Thread.join()、LockSupport.park()方法后，线程状态转换为WAITTING(等待状态)。而同样的，如果调用的是Object.wait(long)、Thread.sleep(long)、Thread.join(long)、LockSupport.parkNanos()、LockSupport.parkUntil()方法时，会进入TIME_WAITTING(超时等待)状态
+当系统调用Object.wait()、Thread.join()、LockSupport.park()方法后，线程状态转换为WAITTING(等待状态)。而同样的，如果调用的是Object.wait(long)、Thread.sleep(long)、Thread.join(long)、LockSupport.parkNanos()、LockSupport.parkUntil()方法时，会进入TIMED_WAITING(超时等待)状态。
+当线程进入WAITING(等待状态)后需要系统调用Object.notify()、Object.notifyAll()、LockSupport.unPark(Thread)方法才能重新唤醒线程。当线程进入TIMED_WAITING(超时等待)状态后当等待时间超过long值后，线程会自动唤醒，或者调用Object.notify()、Object.notifyAll()、LockSupport.unPark(Thread)后也会唤醒线程。
+当线程在READY或RUNNING状态中，等待进入synchronized方法或代码块的时候，即没有获取到对象锁的时候，就将进入阻塞状态，直到该线程获取到对象锁之后，重新进入READY状态。当线程运行结束后，进入TERMINATED(线程终止)状态。
+
+将上述过程总结之后，可以用下图表示:
+
+![](相关图片/线程状态转换.png)
+
+这里需要注意几点：
+1. 处于WAITING和TIMED_WAITING的线程也可能持有对象锁，比如调用Thread.sleep()方法进入等待状态的线程就有可能持有对象锁。
+2. 当线程遇到I/O的时候，还是处于RUNNABLE状态
+
+
+### 线程常用方法 ###
+
+#### sleep()方法 ####
+sleep()是Thread类的静态方法，源码如下：
+```
+    public static native void sleep(long millis) throws InterruptedException;
+```
+它是native修饰的静态方法，用于让当前线程按照指定的long值时间进行休眠，其休眠时间的精度取决于处理器的计时器和调度器，在休眠指定时间后，线程会恢复执行。需要注意的是sleep()方法会交出CPU，但是不会释放对象锁。从上面的线程状态转换图中，可以看到sleep方法会使线程进入TIMED_WAITTING状态。
+Thread.sleep(long)方法经常被拿来与Object.wait()方法进行比较，两者的主要区别如下：
+1. sleep()方法为Thread类的静态方法。而wait()方法为Object类的实例方法。
+2. wait()方法必须在synchronized修饰的同步块或同步方法中调用，否则会报InterruptedException异常，换言之，wait()方法调用必须持有对象锁。而sleep方法则没有这个限制,可以在任何地方使用。
+3. wait()方法会释放CPU资源，并释放对象锁，等待下次重新获取资源。而sleep()方法，只会释放CPU资源，但是不会释放对象锁。
+4. 调用sleep()方法的线程超过等待时间后，获取到CPU时间片资源则会立即执行。而调用了wait()方法的线程必须等待Object.notify(),Object.notifyAll()之后，才会尝试重新获取CPU资源，并执行。
+
+#### yield()方法 ####
+yield()也是Thread类的静态方法，源码如下：
+```
+    public static native void yield();
+```
+当执行该方法时，线程会让出CPU，进入就绪状态。但需要注意的是，让出CPU并不代表该线程不执行了，当前线程仍然会参与到下一次CPU时间片的竞争中，如果该线程在下一次竞争时，仍然获取到了CPU，那么该线程会继续执行。另外，让出的CPU时间片只允许与它相同优先级的线程去竞争。
+下面说一下线程优先级是个什么东西。现代操作系统中基本采用时分的形式调度运行的线程，操作系统会分出一个个时间片，线程会分配到若干时间片，当线程分配到的时间片用完，就会发生线程调度，该线程只能等待下一次分配。线程分配到的处理器时间多少也就决定了线程使用处理器资源的多少，而线程优先级就是决定线程分配时间多少的线程属性。
+在Java中，线程通过Thread中的一个int型私有成员变量来Priority(`private int   priority;`)来控制线程优先级，优先级的范围从1~10，可以在构建线程的时候通过调用setPriority(priority)来设置，默认优先级为5，优先级高的线程相较于优先级低的线程先获取到CPU的时间片。具体源码如下:
+```
+public final static int MIN_PRIORITY = 1;
+
+public final static int NORM_PRIORITY = 5;
+
+public final static int MAX_PRIORITY = 10;
+
+public final void setPriority(int newPriority) {
+        ThreadGroup g;
+        checkAccess();
+        if (newPriority > MAX_PRIORITY || newPriority < MIN_PRIORITY) {
+            throw new IllegalArgumentException();
+        }
+        if((g = getThreadGroup()) != null) {
+            if (newPriority > g.getMaxPriority()) {
+                newPriority = g.getMaxPriority();
+            }
+            setPriority0(priority = newPriority);
+        }
+    }
+
+```
+但是有一点需要注意，不同JVM以及不同操作系统上，对线程的规划是存在差异的，有的操作系统甚至会忽略线程优先级的设定。yield()方法与sleep()方法一样会释放CPU资源，但是不会释放对象锁（如果当前线程持有对象锁的话）；它们之间不同的是sleep()释放的CPU资源所有线程都可以竞争，但是yield()释放的资源只有相同优先级的线程才能竞争
+
+#### join()方法 ####
+如果在一个线程实例A中调用了threadB.join()方法，那么当前线程A会等待线程B终止后才会继续执行。其在Thread类中的源码如下：
+```
+public final synchronized void join(long millis)
+    throws InterruptedException {
+        long base = System.currentTimeMillis();
+        long now = 0;
+
+        if (millis < 0) {
+            throw new IllegalArgumentException("timeout value is negative");
+        }
+
+        if (millis == 0) {
+            while (isAlive()) {
+                wait(0);
+            }
+        } else {
+            while (isAlive()) {
+                long delay = millis - now;
+                if (delay <= 0) {
+                    break;
+                }
+                wait(delay);
+                now = System.currentTimeMillis() - base;
+            }
+        }
+    }
+
+    public final synchronized void join(long millis, int nanos)
+    throws InterruptedException {
+
+        if (millis < 0) {
+            throw new IllegalArgumentException("timeout value is negative");
+        }
+
+        if (nanos < 0 || nanos > 999999) {
+            throw new IllegalArgumentException(
+                                "nanosecond timeout value out of range");
+        }
+
+        if (nanos >= 500000 || (nanos != 0 && millis == 0)) {
+            millis++;
+        }
+
+        join(millis);
+    }
+
+    public final void join() throws InterruptedException {
+        join(0);
+    }
+
+```
+可以看到Thread中除了提供join()方法外，还提供了超时等待相关的join(long)和join(long,int)方法。如果线程B超过给定时间还未执行完成，那么线程A会在线程B执行超时后继续执行。翻看源码发现join()和join(long,int)最终都是调用join(long)方法，而join(long)方法中多次调用了isAlive()方法。
+
+```
+public final native boolean isAlive();
+```
+该方法为native修饰的本地方法，该方法用于判断一个线程是否存活。可以看出来当前等待对象threadA会一直阻塞，直到被等待对象threadB结束后即isAlive()返回false的时候才会结束while循环，当threadB退出时会调用notifyAll()方法通知所有的等待线程
 
 >注：本文参考：https://www.jianshu.com/p/f65ea68a4a7f ，该文章作者有一系列关于java并发包知识的讲解，值得学习
