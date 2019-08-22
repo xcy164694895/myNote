@@ -292,4 +292,122 @@ public final native boolean isAlive();
 ```
 该方法为native修饰的本地方法，该方法用于判断一个线程是否存活。可以看出来当前等待对象threadA会一直阻塞，直到被等待对象threadB结束后即isAlive()返回false的时候才会结束while循环，当threadB退出时会调用notifyAll()方法通知所有的等待线程
 
+下面来写一个例子，看下join的作用
+```
+public static void main(String[] args) {
+        Thread preThread = Thread.currentThread();
+        for(int i= 0;i<10;i++){
+            Thread joinDemo = new JoinDemo(i,preThread);
+            joinDemo.start();
+            preThread = joinDemo;
+        }
+    }
+
+    static class JoinDemo extends Thread{
+        private int i;
+        private Thread preThread;
+
+        public JoinDemo(int i,Thread preThread){
+            this.i = i;
+            this.preThread = preThread;
+        }
+
+        @Override
+        public void run(){
+            try {
+                preThread.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            System.out.println(this.getName()+": "+ i);
+        }
+    }
+```
+这段代码，去除掉run()方法中的join方法调用的时候，答应出的i顺序是不确定的。但是加上join后，即相当于每个线程的执行需要等待上一个线程执行结束，那么i就会按照自然顺序打印到控制台，得到结果如下：
+```
+加join()方法前：            加join()方法后：
+Thread-1: 1                 Thread-0: 0
+Thread-0: 0                 Thread-1: 1
+Thread-2: 2                 Thread-2: 2
+Thread-3: 3                 Thread-3: 3
+Thread-4: 4                 Thread-4: 4
+Thread-5: 5                 Thread-5: 5
+Thread-6: 6                 Thread-6: 6
+Thread-7: 7                 Thread-7: 7
+Thread-8: 8                 Thread-8: 8
+Thread-9: 9                 Thread-9: 9
+```
+
+### interrupt()方法 ###
+interrupt()方法为中断线程方法，调用该方法并不是里面中断线程，而是将线程中的中断标志位设置为true;中断好比其他线程对该线程打了一个招呼,其他线程可以调用该线程的interrupt()方法对其进行中断操作,而中断的结果线程是死亡、还是等待新的任务或是继续运行至下一步，就取决于这个程序本身。
+该线程可以调用isInterrupted（）来感知其他线程对其自身的中断操作，从而做出响应。也可以调用Interrupted()方法来获取中断标志位状态，但是该方法获取到标志位状态后，会将标志位重新设置为false。
+需要注意的是，当抛出InterruptedException时候，会清除中断标志位，也就是说在调用isInterrupted会返回false。
+
+|  方法名   | 详细解释  | 备注  |
+|  ----  | ----  | ---- |
+| interrupt()     | 中断该线程对象 | 如果该线程被调用Object.wait()/wait(long)<br>或调用了Thread.sleep(long)/join()/join(long)方法时，<br>会抛出InterruptedException异常,并清除中断标志位
+| isInterrupted()  | 检测该线程是否被中断 |中断标志位不会被清除，类似于get()方法|
+| interrupted() | 检测该线程是否被中断| 中断标志位会被清除，类似于get()+set()方法|
+
+下面我们结合具体的例子来看下：
+
+```
+public class InterruptDemo {
+    public static void main(String[] args) throws InterruptedException {
+        //sleepThread睡眠1000ms
+        final Thread sleepThread = new Thread() {
+            @Override
+            public void run() {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                super.run();
+            }
+        };
+        //busyThread一直执行死循环
+        Thread busyThread = new Thread() {
+            @Override
+            public void run() {
+                while (true) ;
+            }
+        };
+        sleepThread.start();
+        busyThread.start();
+        sleepThread.interrupt();
+        busyThread.interrupt();
+        while (sleepThread.isInterrupted()) ;
+        System.out.println("sleepThread isInterrupted: " + sleepThread.isInterrupted());
+        System.out.println("busyThread isInterrupted: " + busyThread.isInterrupted());
+    }
+}
+
+```
+最终输出结果如下:
+
+```
+sleepThread isInterrupted: false
+busyThread isInterrupted: true
+java.lang.InterruptedException: sleep interrupted
+	at java.lang.Thread.sleep(Native Method)
+	at com.xcy.javaConcurrent.InterruptDemo$1.run(InterruptDemo.java:14)
+
+
+```
+以上demo中开启了两个线程分别为sleepThread和BusyThread。sleepThread调用sleep方法睡眠1秒，busyThread则进行死循环。当分别对两个线程进行interrupt操作时，可以看出sleepThread抛出InterruptedException，并清除了标志位。而busyThread则没有清除标志位。
+我们关注一下`while (sleepThread.isInterrupted()) ;`这行代码，Interrupt()方法也可以看做线程之间的一种简单交互方式，这行代码说明main方法会一直监控sleepThread的中断标志位状态，当中断标志位被清零时才会继续往下执行。
+
+
+### 守护线程  isDaemon()方法###
+Thread中的isDaemon方法用于判断该线程是否为守护线程，守护线程是运行在后台的一种特殊进程，它独立于控制终端，并且周期性地执行某种任务或着等待处理某些发生的事件。也就是在程序运行的时候在后台提供一种通用服务的线程，在没有用户线程客服务时会自动离开。用户线程完全结束后就意味着整个系统的业务任务全部结束了，因此系统就没有对象需要守护的了，守护线程自然而然就会退。当一个Java应用，只有守护线程的时候，虚拟机就会自然退出。例如垃圾回收线程，JIT线程就可以理解守护线程。
+其在Thread中的源码如下：
+```
+    public final boolean isDaemon() {
+            return daemon;
+        }
+
+```
+
+
 >注：本文参考：https://www.jianshu.com/p/f65ea68a4a7f ，该文章作者有一系列关于java并发包知识的讲解，值得学习
