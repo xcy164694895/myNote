@@ -515,3 +515,5 @@ public void forEach(Consumer<? super E> action) {
 3. ArrayList允许存放不止一个null值；
 4. ArrayList允许存放重复数据，存储顺序按照元素的添加顺序
 5. ArrayList线程不安全；
+
+>注：本文参考:https://juejin.im/post/5ab548f75188257ddb0f8fa2#heading-29
